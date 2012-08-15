@@ -1,0 +1,106 @@
+#!/bin/bash
+# 2 links chain checker for proxychains.
+# 3 checks here 1-for first link 2-for second 3-for both
+trap bashtrap INT
+bashtrap()
+{
+	echo "CTRL+C Detected !...executing bash trap !"
+	killall chainwrap #script name
+}
+
+OUTPUT_DIR="output"
+pchainsfile=$OUTPUT_DIR"/CONNECT_proxychains"
+varagent="Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.2.23) Gecko/20110920 Firefox/3.6.23 SearchToolbar/1.2"
+TIMEOUT=1
+sitedns=".ru"
+siteip="..."
+
+if [ ! -f $pchainsfile ] ; then
+    echo "IP's not checked, please run $0 -c "
+    exit
+fi
+
+[ -f /home/user/.proxychains/ready.conf ] && rm /home/user/.proxychains/ready.conf
+#[ ! -f /home/user/.proxychains/proxychains2.bak ] && cp /home/user/.proxychains/proxychains.conf /home/user/.proxychains/proxychains2.bak
+cat .proxychains/proxychains.conf | sed '/\[ProxyList\]/,/END/ d' > /home/user/.proxychains/ready.conf
+echo "[ProxyList]" >> /home/user/.proxychains/ready.conf
+
+while [ true ]; do
+cp /home/user/.proxychains/ready.conf /home/user/.proxychains/proxychains.conf
+
+MAX_LINES=$(wc -l $pchainsfile | grep -o '^[0-9]*')
+	#awk "NR=="$count",NR=="$((count+1))"" $OUTPUT_DIR"/CONNECT_proxychains"
+randnum1=1
+	while [ true ]; do
+		echo trying1...
+		randnum1=$[ ( $RANDOM % $MAX_LINES )  + 1 ]
+		proxyip=$(sed -n $randnum1"p" $pchainsfile | sed 's/[^\t]*\t//' | sed 's/\t/:/')
+#		echo $proxyip
+		case $(sed -n $randnum1"p" $pchainsfile | sed 's/\t.*//') in
+			"http")
+				contype="-p"
+				;;
+			"socks4")
+				contype="--socks4"
+				;;
+			"socks5")
+				contype="--socks5"
+				;;
+		esac
+		for i in 1 2 3 4; do
+#			echo $proxyip
+			http_check_var=`curl -s $contype -A "$varagent" -x "$proxyip" --connect-timeout $TIMEOUT \
+			--header "Host: .ru" --url "http://.../tmp/" -L -m 1`
+			http_check_var1=`echo $http_check_var | grep -o "fuck"`
+#			echo $http_check_var1
+			[[ -z "$http_check_var1" ]] && continue 2
+#			[[ -n "$http_check_var1" ]] && break
+#			sleep 0.1
+		done
+		break
+	done
+randnum2=2
+	while [ true ]; do
+		echo trying2...
+		randnum2=$[ ( $RANDOM % $MAX_LINES )  + 1 ]
+		proxyip=$(sed -n $randnum1"p" $pchainsfile | sed 's/[^\t]*\t//' | sed 's/\t/:/')
+		case $(sed -n $randnum2"p" $pchainsfile | sed 's/\t.*//') in
+			"http")
+				contype="-p"
+				;;
+			"socks4")
+				contype="--socks4"
+				;;
+			"socks5")
+				contype="--socks5"
+				;;
+		esac
+		for i in 1 2 3 4; do
+			http_check_var=`curl -s $contype -A "$varagent" -x "$proxyip" --connect-timeout $TIMEOUT \
+			--header "Host: .ru" --url "http://.../tmp/" -L -m 1`
+			http_check_var1=`echo $http_check_var | grep -o "fuck"`
+			[[ -z "$http_check_var1" ]] && continue 2
+#			echo $http_check_var1
+#			[[ -z "$http_check_var1" ]] && continue 2
+#			[[ -z "$http_check_var1" ]] && break
+#			sleep 0.1
+		done
+		break
+	done
+	echo $(sed -n $randnum1"p" $pchainsfile)
+	echo $(sed -n $randnum2"p" $pchainsfile)
+	sed -n $randnum1"p" $pchainsfile >> .proxychains/proxychains.conf
+	sed -n $randnum2"p" $pchainsfile >> .proxychains/proxychains.conf
+	echo "Good proxies copied to .proxychains/proxychains.conf"
+
+	proxychains curl -s -A "$varagent" --connect-timeout $TIMEOUT \
+	--url "http://""$sitedns""/tmp/" -m 2 > tmp                   #Proxies for browser
+	http_check_var=`cat tmp`
+	http_check_var1=`echo "$http_check_var" | grep -o "fuck"`
+	http_check_var2=`echo "$http_check_var" | grep -o "Forwarded"`
+	http_check_var3=`echo "$http_check_var" | grep -o "Proxy"`
+	http_check_var4=`echo "$http_check_var" | grep -o "Via"`
+#	cat tmp
+	[[ -n "$http_check_var1" && -z "$http_check_var2" ]] && break
+done
+rm /home/user/.proxychains/ready.conf
