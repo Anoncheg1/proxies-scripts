@@ -363,7 +363,7 @@ echo "/etc/proxychains.conf recovered..."
 
 function _usage {
 
-echo "Currently supporting freeproxylists, sakura, multiproxy, nntime, myproxy, proxylistsnet, shroomery, samair.ru , rosinstrument"
+echo "Currently supporting freeproxylists"
 echo
 echo "`basename $0` -r rip proxy websites to \"$OUTPUT_DIR\" driectory"
 echo "`basename $0` -c read IPs from \"$OUTPUT_DIR\" driectory and check if alive"
