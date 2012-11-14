@@ -40,7 +40,7 @@ OUTPUT_DIR="output"
 
 function quit {
 
-killall prmy.sh
+kill 0
 [ -f "$OUTPUT_DIR"/cookie ] && rm "$OUTPUT_DIR"/cookie
 [ -f "$OUTPUT_DIR"/objs ] && rm "$OUTPUT_DIR"/objs
 [ -f "$OUTPUT_DIR"/result ] && rm "$OUTPUT_DIR"/result
