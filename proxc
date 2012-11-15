@@ -45,7 +45,8 @@ function ping_http {
 #		local http_check_var_connect=`curl -s -A "$varagent" -p -x "$proxyip" --connect-timeout $TIMEOUT \
 #		--header "Host: "$sitedns"" --url "http://"$siteip"/tmp/" -m 5 | grep -o "$phpsiteprase"`  #Http Connect check
 		if [[ -z "$check2_forwarded" && -z "$check3_clientip" ]]; then  #  -z - if null #Elite without cookie
-			local http_check_var=`curl -s -A "$varagent" -x "$proxyip" --connect-timeout $TIMEOUT --header "$cookie_header" \
+			local http_check_var=`curl -s -A "$varagent" -x "$proxyip" --connect-timeout $TIMEOUT\
+			--header "$cookie_header" --header "Cache-Control: no-cache"\
 			--url "http://""$sitedns""/tmp/" -m 5` #second check with cookie now
 			local check1_phrase=`echo "$http_check_var" | grep -o "$phpsiteprase"`
 			local check2_forwarded=`echo "$http_check_var" | grep -o "Forwarded"`
