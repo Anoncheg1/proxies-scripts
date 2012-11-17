@@ -406,7 +406,7 @@ function ping_http {
 		echo "$proxyip" >> "$OUTPUT_DIR"/http/good
 		echo -ne "Found `cat "$OUTPUT_DIR"/http/good | wc -l` working proxies       \\r"
 		if [[ -z "$http_check_var2" && -z "$http_check_var22" ]]; then  #  -z - if null
-			local http_check_var_cookie=`curl -s -A "$varagent" -x "$proxyip" --header "$cookie_header" --connect-timeout $TIMEOUT \
+			local http_check_var_cookie=`curl -s -A "$varagent" -x "$proxyip" --header "$cookie_header" --header "Cache-Control: no-cache" --connect-timeout $TIMEOUT \
 			--header "Host: $servdns" --url "http://$servip/tmp/" -L -m 5`
 			local http_check_var2=`echo $http_check_var | grep -o "X-Forwarded-For"`
 			local http_check_var22=`echo $http_check_var | grep -o "Client-Ip"`
