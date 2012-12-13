@@ -10,17 +10,15 @@ echo rmccurdy.com if you have any issues with any of the script not working ...
 # http://forums.hak5.org/index.php?showtopic=25314
 echo =======================================================================================
 echo 'NOTES:'
-
-echo '* Build with Ubuntu 10.04.3 LTS'
 echo '* GNU sed version 4.2.1'
-echo '* curl 7.19.7 (i486-pc-linux-gnu) libcurl/7.19.7 OpenSSL/0.9.8k zlib/1.2.3.3 libidn/1.15 '
+echo '* curl >= 7.21.0'
+echo '* html2text'
 
 echo 'TODO:'
 echo '* error checking max pages zero then bail report error ..'
 echo '* setup vars for config max timeout and test urls ..'
 echo '* add more checks from freeproxylists.com proxies ssl etc'
 echo '* add support to check TEST urls before we start or auto detect and set net TEST url if blocked etc ..'
-echo '* check output files for IP:PORT and wc to determining if site ripp worked ...'
 echo '* add file uploader site check'
 # curl -s -A "$varagent" -x "$proxyip" --url http://www.filesonic.com/file/537557874/T-64AOCP.rar --connect-timeout $TIMEOUT -m 10 | grep -ci 'suspicious'
 # IP http://proxy.parser.by/check_proxy.php
