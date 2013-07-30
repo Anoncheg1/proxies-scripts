@@ -391,11 +391,11 @@ function get_rosinstrument {
 
 function get_blogspot {
 	touch $OUTPUT_DIR"/http/blogspot_http"		
-	for line in $(curl -s -A "$varagent" "http://proxies24.blogspot.ru/" | grep "Read more" | grep -o "http.*\.html")  ; do
+	for line in $(curl -s -A "$varagent" "http://www.proxies24.org/" | grep "Read more" | grep -o "http.*\.html")  ; do
 		curl -s -A "$varagent" $line | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]*' >> $OUTPUT_DIR"/http/blogspot_http"
 	done	
 	TOTAL_CONNECT=`cat $OUTPUT_DIR"/http/blogspot_http" | wc -l`
-	echo "proxies24.blogspot.ru Got "$TOTAL_CONNECT" http proxies   \\r"
+	echo "www.proxies24.org Got "$TOTAL_CONNECT" http proxies   \\r"
 } #///////////////////////////////////// get_blogspot  ///////////////////////////////////////////////////
 
 ######################################## get_socks5list  ###################################################
