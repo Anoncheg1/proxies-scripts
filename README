@@ -5,3 +5,34 @@ proxcs file - Socks 4/5 fast scanner
 proxc file - HTTP fast scanner
 chainwrap file  - chans tester
 prmy.sh - web grabber for proxies. YOU BETTER SET GOOD httpproxy, before use it. Or try to comment it.(Site blocking by ISP)
+
+
+
+
+PHP site  http://"your.site.com"/tmp/index.php:
+
+<html>
+ <head>
+  <title>proxc</title>
+ </head>
+ <body>
+
+ <?php echo '<p>any fucking text</p>/n';
+if(!function_exists('apache_request_headers')) {
+    function apache_request_headers() {
+        $headers = array();
+        foreach($_SERVER as $key => $value) {
+            if(substr($key, 0, 5) == 'HTTP_') {
+                $headers[str_replace(' ', '-', ucwords(str_replace('_', ' ', strtolower(substr($key, 5)))))] = $value;
+            }
+        }
+        return $headers;
+    }
+}
+
+
+print_r( apache_request_headers() );
+
+?>
+</body>
+</html>
