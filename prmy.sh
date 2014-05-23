@@ -31,10 +31,17 @@ echo ===========================================================================
 sleep 0.1
 trap quit INT
 
-servdns=your.site.dns #dns of server with php site
+servdns=yoursite.dns.ru.ru #dns of server with php site
 servip=1.1.1.1 #ip address of server with php site
+httpproxy="127.0.0.1:8123" #proxy proxylistsites.
+sip=$(dig +short $servdns)
+if [[ $sip != "" ]]; then
+	servip=$sip
+fi
 
-varagent="Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.2.23) Gecko/20110920 Firefox/3.6.23 SearchToolbar/1.2"
+phpsiteprase="any fucking text"
+
+varagent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_2) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.202 Safari/535.1"
 cookie_header="Cookie: s_i=1; statSuSid=0.9385053525684567;"
 TIMEOUT=10
 OUTPUT_DIR="output"
@@ -56,30 +63,36 @@ function get_freeproxylists {
 #echo They do not provide anyone with your IP address and effectively hide any information about you and your reading interests
 
 #ugly
-for img in `curl -A "$varagent"  -s http://www.freeproxylists.com/elite.php | grep "elite " | grep "elite/" | sed 's/.*elite\///g' | sed 's/\.html.*//g' | sed 's/^/http:\/\/www.freeproxylists.com\/load_elite_/g' | sed 's/$/\.html/g'`
+for img in `curl -s -A "$varagent" -x "$httpproxy" http://www.freeproxylists.com/elite.php | grep "elite " | grep "elite/" | sed 's/.*elite\///g' | sed 's/\.html.*//g' | sed 's/^/http:\/\/www.freeproxylists.com\/load_elite_/g' | sed 's/$/\.html/g'`
 do
-echo $img
-curl -A "$varagent"  -s $img | awk '{gsub("&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;","\n"); print}' | awk '{gsub("&lt;/td&gt;&lt;td&gt;",":"); print}' | sed 's/&lt.*//g' | grep -v "<" | sed '/Try our\|You/d' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/http/freeproxylist
+	echo $img
+	curl -s -A "$varagent" -x "$httpproxy" $img | awk '{gsub("&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;","\n"); print}' | awk '{gsub("&lt;/td&gt;&lt;td&gt;",":"); print}' | sed 's/&lt.*//g' | grep -v "<" | sed '/Try our\|You/d' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/http/freeproxylist
 done
-
 	TOTAL_CONNECT=`cat $OUTPUT_DIR"/http/freeproxylist" | wc -l`
-	echo /"freeproxylists.com Got "$TOTAL_CONNECT" socks proxies   \\r"
+	echo /"freeproxylists.com Got "$TOTAL_CONNECT" http proxies   \\r"
+	
+#for img in `curl -s -A "$varagent" -x "$httpproxy" http://www.freeproxylists.com/socks.php | grep "socks/" | sed "s/.*='\(s.*\)'.*/http:\/\/www.freeproxylists.com\/\1/"`
+#do
+#	echo $img	
+	
 }
 
 function get_sakura {
 
 [ -f "$OUTPUT_DIR"/tmp ] && rm "$OUTPUT_DIR"/tmp
-local MAX_PAGE=$( curl -s "http://proxylist.sakura.ne.jp/"| grep -o "Page .[0-9]" | sed 's/Page //' | sort -n | tail -1 )
+local MAX_PAGE=$( curl -s -A "$varagent" -x "$httpproxy" "http://proxylist.sakura.ne.jp/"| grep -o "Page [0-9]" | sed 's/Page //' | sort -n | tail -1 )
 
 echo "Ripping proxylist.sakura.ne.jp ("$MAX_PAGE" Pages)"
 sleep 0.1
 for i in $(seq 1 $MAX_PAGE)
 do
-curl -s -A "$varagent"  "http://proxylist.sakura.ne.jp/index.htm?pages="$i"" | grep 'proxy([1-4]' >> "$OUTPUT_DIR"/tmp
+curl -s -A "$varagent" -x "$httpproxy" "http://proxylist.sakura.ne.jp/index.htm?pages="$i"" | grep 'proxy([1-4]' >> "$OUTPUT_DIR"/tmp
 # parse output
 cat "$OUTPUT_DIR"/tmp | cut -d "'" -f 2,4,6,8,9 | sed "s/'/./g" | sed "s/.,/:/" | sed 's/);//' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/http/sakura.ne.jp
 rm "$OUTPUT_DIR"/tmp
 done
+	TOTAL_CONNECT=`cat "$OUTPUT_DIR"/http/sakura.ne.jp | wc -l`
+	echo /"get_sakura Got "$TOTAL_CONNECT" http proxies   "
 }
 
 # total crap 1 http and one socks .. function get_multiproxy {
@@ -94,16 +107,18 @@ function get_nntime {
 [ -f "$OUTPUT_DIR"/tmp ] && rm "$OUTPUT_DIR"/tmp
 #echo "Ripping nntime.com"
 # pages is wrong try division of total proxy on main page
-
-for i in seq {01..17}
+local MAX_PAGE=`curl -s -A "$varagent" -x "$httpproxy" "http://nntime.com" | grep class=\"selected\" | sed 's/.*>\([0-9]*\)<\/a>.*/\1/'`
+echo "Ripping nntime.com ("$MAX_PAGE" Pages)"
+for i in $(seq 1 $MAX_PAGE)
 do
-curl -s "http://nntime.com/proxy-list-$i.htm"  -A 'SAMSUNG-SGH-E250/1.0 Profile/MIDP-2.0 Configuration/CLDC-1.1 UP.Browser/6.2.3.3.c.1.101 (GUI) MMP/2.0 (compatible; Googlebot-Mobile/2.1; +http://www.google.com/bot.html)' | egrep '(document.write| = )|;<\/script>' |sed -e 's/.*<td>/print("/g' -e 's/<script type="text\/javascript">document.write(//g' -e 's/":/:/g' -e 's/<\/script>.*/;/g' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/tmp
+	curl -s -A "$varagent" -x "$httpproxy" "http://nntime.com/proxy-list-$i.htm"  | egrep '(document.write| = )|;<\/script>' |sed -e 's/.*<td>/print("/g' -e 's/<script type="text\/javascript">document.write(//g' -e 's/":/:/g' -e 's/<\/script>.*/;/g' | sed '/^[ \t]/d' | tr -d '\r' | sed '$d' >> "$OUTPUT_DIR"/tmp
 done
+#cat "$OUTPUT_DIR"/tmp
 js "$OUTPUT_DIR"/tmp >> "$OUTPUT_DIR"/http/nntime
 rm "$OUTPUT_DIR"/tmp
 
 	TOTAL_CONNECT=`cat "$OUTPUT_DIR"/http/nntime | wc -l`
-	echo /"nntime.com Got "$TOTAL_CONNECT" http proxies   \\r"
+	echo /"nntime.com Got "$TOTAL_CONNECT" http proxies   "
 
 }
 
@@ -122,18 +137,18 @@ function get_myproxy {
 
 
 echo ripping Anonymous Proxy 3 pages 
-curl -A "$varagent"  -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-elite-proxy.html" -e 'http://www.m.com/list/verify.php'http://www.my-proxy.com/list/verify.php  |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy-s
-curl -A "$varagent"  -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-anonymous-proxy.html" -e 'http://www.m.com/list/verify.php'http://www.my-proxy.com/list/verify.php  |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy-s
-curl -A "$varagent"  -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-transparent-proxy.html" -e 'http://www.m.com/list/verify.php'http://www.my-proxy.com/list/verify.php  |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy-s
+curl -A "$varagent" -x "$httpproxy" -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-elite-proxy.html" -e 'http://www.m.com/list/verify.php'http://www.my-proxy.com/list/verify.php  |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy-s
+curl -A "$varagent" -x "$httpproxy" -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-anonymous-proxy.html" -e 'http://www.m.com/list/verify.php'http://www.my-proxy.com/list/verify.php  |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy-s
+curl -A "$varagent" -x "$httpproxy" -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-transparent-proxy.html" -e 'http://www.m.com/list/verify.php'http://www.my-proxy.com/list/verify.php  |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy-s
 
 echo ripping Socks 4 and 5 Proxy  2 pages
-curl -A "$varagent"  -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-socks-4-proxy.html" |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/socks/socks4
-curl -A "$varagent"  -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-socks-5-proxy.html" |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/socks/socks4
+curl -A "$varagent" -x "$httpproxy" -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-socks-4-proxy.html" |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/socks/socks4
+curl -A "$varagent" -x "$httpproxy" -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-socks-5-proxy.html" |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/socks/socks4
 
 echo ripping http 10 pages
 for i in seq {2..10}
 do
-	curl -A "$varagent"  -s  -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-proxy-list-"$i".html" |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy
+	curl -A "$varagent"  -s -x "$httpproxy" -c "$OUTPUT_DIR"/cookie -b "$OUTPUT_DIR"/cookie "http://www.my-proxy.com/free-proxy-list-"$i".html" |grep br | awk '{gsub("<br>","\n"); print}' | grep "[0-9]\.[0-9]" | sed '/^[ \t]/d' | tr -d '\r' | sed 's/#.*//' >> "$OUTPUT_DIR"/http/my-proxy
 	sleep 0.1
 done
 	TOTAL_CONNECT=`cat "$OUTPUT_DIR"/http/my-proxy | wc -l`
@@ -143,7 +158,7 @@ done
 ######################################   PROXYLISTNET   ############################################
 function get_proxylistsnet_page(){
       local page=$(echo $1 | sed 's/_.*_/_'$2'_/')
-      local proxies=$(curl -A "$varagent" -s http://www.proxylists.net$page)
+      local proxies=$(curl -A "$varagent" -x "$httpproxy" -s http://www.proxylists.net$page)
       local ipies=$(echo "$proxies" | grep -o "unescape('.*')")
       local ports=$(echo "$proxies" | grep -o "td>[0-9]*</td" | grep -o "[0-9]*")
       local types=$(echo "$proxies" | grep -o "td>[0-9]*</td.*" | sed 's/[^/]*\/\([^/]*\).*/\1/' | sed 's/.*<td>\(.*\)./\1/')
@@ -163,13 +178,13 @@ function get_proxylistsnet_page(){
 
 function get_proxylistsnet {
 
-countries=$(curl -A "$varagent" -s http://www.proxylists.net/countries.html | grep -io "a href='/.*_0.html'" | sed "s/.*'\(.*\)'.*/\1/" | sed 's/\./_ext./')
+countries=$(curl -A "$varagent" -s -x "$httpproxy" http://www.proxylists.net/countries.html | grep -io "a href='/.*_0.html'" | sed "s/.*'\(.*\)'.*/\1/" | sed 's/\./_ext./')
 rm "$OUTPUT_DIR"/proxy_list_socks5_objs 2> /dev/null
 rm "$OUTPUT_DIR"/proxy_list_socks4_objs 2> /dev/null
 rm "$OUTPUT_DIR"/proxy_list_http_objs 2> /dev/null
 for entry in $countries; do
 #echo $entry
-  local MAX_PAGE=$(( $(curl -A "$varagent" -s http://www.proxylists.net$entry | grep "${entry:1}" | grep -o "a href" | wc -l) -1 ))
+  local MAX_PAGE=$(( $(curl -A "$varagent" -x "$httpproxy" -s http://www.proxylists.net$entry | grep "${entry:1}" | grep -o "a href" | wc -l) -1 ))
   echo "Ripping proxylists.net - "$entry pages:$(($MAX_PAGE + 1))
     for i in $(seq 0 "$MAX_PAGE");do
        get_proxylistsnet_page "$entry" $i &
@@ -197,7 +212,7 @@ function get_shroomery {
 
 #echo "Ripping www.shroomery.org"
 # OLD lynx -connect_timeout=3 -width=999 -dump -nolist 'http://www.shroomery.org/ythan/proxylist.php' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/shroomery
-curl -s "http://www.shroomery.org/ythan/proxylist" | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/http/shroomery
+curl -s -A "$varagent" -x "$httpproxy" "http://www.shroomery.org/ythan/proxylist" | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/http/shroomery
 
 	TOTAL_CONNECT=`cat "$OUTPUT_DIR"/http/shroomery | wc -l`
 	echo /"www.shroomery.org Got "$TOTAL_CONNECT" http proxies   \\r"
@@ -208,14 +223,14 @@ curl -s "http://www.shroomery.org/ythan/proxylist" | sed '/^[ \t]/d' | tr -d '\r
 function get_samair_http {
 	[ -f "$OUTPUT_DIR"/tmp ] && rm "$OUTPUT_DIR"/tmp
 
-	local MAX_PAGE=$( curl -A "$varagent" -s http://www.samair.ru/proxy/proxy-01.htm | grep -io "=\"proxy-[0-9][0-9].htm\"" | wc -l )
+	local MAX_PAGE=$( curl -A "$varagent" -x "$httpproxy" -s http://www.samair.ru/proxy/proxy-01.htm | grep -io "=\"proxy-[0-9][0-9].htm\"" | wc -l )
 
 	echo "Ripping www.samair.ru ("$MAX_PAGE" Pages)"
 
 	for i in $(seq 1 "$MAX_PAGE");do
 		a=$(printf "%02d" "$i") # leading zero
 #		wget -q http://www.samair.ru/proxy/proxy-"$a".htm
-		curl -A "$varagent" -s http://www.samair.ru/proxy/proxy-"$a".htm | grep -Eo '[0-9]+.[0-9]+.[0-9]+.[0-9]+.[0-9]+' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/http/samair
+		curl -A "$varagent" -s -x "$httpproxy" http://www.samair.ru/proxy/proxy-"$a".htm | grep -Eo '[0-9]+.[0-9]+.[0-9]+.[0-9]+.[0-9]+' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/http/samair
 		# throttle
 		sleep 0.1
 		# parse
@@ -232,11 +247,11 @@ function get_samair_socks {
 
 	# samair socks proxies - todo - arrange socks proxies into seperate files according to SOCKS 4 or 5 support
 
-	local MAX_PAGE=$( curl -A "$varagent" -s http://www.samair.ru/proxy/socks01.htm | grep -io "=\"socks[0-9][0-9].htm\"" | wc -l )
+	local MAX_PAGE=$( curl -A "$varagent" -s -x "$httpproxy" http://www.samair.ru/proxy/socks01.htm | grep -io "=\"socks[0-9][0-9].htm\"" | wc -l )
 	echo "Ripping www.samair.ru SOCKS proxies("$MAX_PAGE" Pages)"
 
 	for i in $(seq 1 "$MAX_PAGE");do
-		curl -A "$varagent" -s http://www.samair.ru/proxy/socks"$i".htm | grep -Eo '[0-9]+*\.[0-9]+.[0-9]+.[0-9]+.[0-9]+' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/socks/samairsocks
+		curl -A "$varagent" -s -x "$httpproxy" http://www.samair.ru/proxy/socks"$i".htm | grep -Eo '[0-9]+*\.[0-9]+.[0-9]+.[0-9]+.[0-9]+' | sed '/^[ \t]/d' | tr -d '\r' >> "$OUTPUT_DIR"/socks/samairsocks
 		# throttle
 		sleep 0.1
 	done
@@ -265,7 +280,7 @@ echo "Ripping page  "$1"  of rosinstrument of type "$2
 sleep 0.1
 #curl -s -b "$OUTPUT_DIR"/cookie -c "$OUTPUT_DIR"/cookie -A "$varagent" -e "http://www.proxies.by/raw_free_db.htm?t=0&i=rule2" "http://www.proxies.by/raw_free_db.htm?"$pagenum"&t=2"
 #www.proxies.by
-    curl -s -b "$OUTPUT_DIR"/cookie -c "$OUTPUT_DIR"/cookie -A "$varagent" "http://www.proxies.by/raw_free_db.htm?"$pagenum"&t=2" | grep '<script language="javascript" type="text/javascript">' -A 90 | sed '/-->/,/blkjsldkhqweh348239/ s/.*//' | sed 's/document.write/print/' | sed '1,2d' | grep -v 'function print' > "$OUTPUT_DIR"/objs
+    curl -s -b "$OUTPUT_DIR"/cookie -c "$OUTPUT_DIR"/cookie -A "$varagent" -x "$httpproxy" "http://www.proxies.by/raw_free_db.htm?"$pagenum"&t=2" | grep '<script language="javascript" type="text/javascript">' -A 90 | sed '/-->/,/blkjsldkhqweh348239/ s/.*//' | sed 's/document.write/print/' | sed '1,2d' | grep -v 'function print' > "$OUTPUT_DIR"/objs
     if [ $? -ne 0 ] ; then
     echo "Problem with connection.."
                if [ $i -le "$maxloops" ] ; then
@@ -372,7 +387,7 @@ function get_rosinstrument {
 	#echo "Ripping http://www.proxies.by"
 	touch "$OUTPUT_DIR"/cookie
 	echo setting "$OUTPUT_DIR"/cookie
-	curl -s -c "$OUTPUT_DIR"/cookie -A "$varagent" "http://www.proxies.by/raw_free_db.htm" > /dev/null
+	curl -s -c "$OUTPUT_DIR"/cookie -A "$varagent" -x "$httpproxy" "http://www.proxies.by/raw_free_db.htm" > /dev/null
 	#cat "$OUTPUT_DIR"/cookie | tail -n 1 | cat "$OUTPUT_DIR"/cookie | tail -n 1 | sed 's/\([^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t\).*/\1ROBOTTEST\tOK/' >> "$OUTPUT_DIR"/cookie
 	#sleep 0.1
 	#curl -s -b "$OUTPUT_DIR"/cookie -c "$OUTPUT_DIR"/cookie -A "$varagent" -e "http://www.proxies.by/raw_free_db.htm" "http://www.proxies.by/raw_free_db.htm?t=0&i=rule2" > /dev/null
@@ -390,9 +405,9 @@ function get_rosinstrument {
 ######################################## get_blogspot  ###################################################
 
 function get_blogspot {
-	touch $OUTPUT_DIR"/http/blogspot_http"		
-	for line in $(curl -s -A "$varagent" "http://www.proxies24.org/" | grep "Read more" | grep -o "http.*\.html")  ; do
-		curl -s -A "$varagent" $line | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]*' >> $OUTPUT_DIR"/http/blogspot_http"
+	touch $OUTPUT_DIR"/http/blogspot_http"
+	for line in $(curl -s -A "$varagent" -x "$httpproxy" "http://free-proxyserver-list.blogspot.ru/" | grep "Read more" | grep -o "http.*\.html")  ; do
+		curl -s -A "$varagent" -x "$httpproxy" $line | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]*' >> $OUTPUT_DIR"/http/blogspot_http"
 	done	
 	TOTAL_CONNECT=`cat $OUTPUT_DIR"/http/blogspot_http" | wc -l`
 	echo "www.proxies24.org Got "$TOTAL_CONNECT" http proxies   \\r"
@@ -402,23 +417,22 @@ function get_blogspot {
 
 function get_socks5list {
 	touch $OUTPUT_DIR"/socks/socks5list"
-#	echo "Ripping http://www.socks5list.com/"
-	curl -s -A "$varagent" "http://www.socks5list.com/" | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]*' >> $OUTPUT_DIR"/socks/socks5list"
+	curl -s -A "$varagent" -x "$httpproxy" "http://socks5-servers.blogspot.ru/" | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]*' >> $OUTPUT_DIR"/socks/socks5list"
 	TOTAL_CONNECT=`cat $OUTPUT_DIR"/socks/socks5list" | wc -l`
 	echo /"socks5list Got "$TOTAL_CONNECT" socks proxies   \\r"
 } #///////////////////////////////////// get_socks5list  ///////////////////////////////////////////////////
 
 
-######################################## get_proxyhunter  ###################################################
+######################################## http://eliteproxy.blogspot.ru  ###################################################
 
-function get_proxyhunter { #http://proxy-hunter.blogspot.com/
-	touch $OUTPUT_DIR"/http/proxyhunter"
+function get_eliteproxy { #http://proxy-hunter.blogspot.com/
+	#touch $OUTPUT_DIR"/http/proxyhunter"
 	#echo "Ripping http://proxy-hunter.blogspot.ru/"
-	for line in $(curl -s -A "$varagent" "http://proxy-hunter.blogspot.ru/" | grep rmlink | grep -o "http.*\.html")  ; do
-		curl -s -A "$varagent" $line | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]*' >> $OUTPUT_DIR"/http/proxyhunter"
+	for line in $(curl -s -A "$varagent" "http://eliteproxy.blogspot.ru" | grep rmlink | grep -o "http.*\.html")  ; do
+		curl -s -A "$varagent" -x "$httpproxy" $line | grep -Eo '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]*' >> $OUTPUT_DIR"/http/eliteproxy"
 	done
-	TOTAL_CONNECT=`cat $OUTPUT_DIR"/http/proxyhunter" | wc -l`
-	echo /"proxy-hunter Got "$TOTAL_CONNECT" http proxies   \\r"
+	TOTAL_CONNECT=`cat $OUTPUT_DIR"/http/eliteproxy" | wc -l`
+	echo /"Eliteproxy Got "$TOTAL_CONNECT" http proxies   \\r"
 } #///////////////////////////////////// get_proxyhunter  ///////////////////////////////////////////////////
 
 function ping_http {
@@ -447,7 +461,7 @@ function ping_http {
 #	local proxyip_noport=`echo $proxyip | sed 's/:.*//'`
 	local http_check_var=`curl -s -A "$varagent" -x "$proxyip" --connect-timeout $TIMEOUT \
 	--header "Host: $servdns" --url "http://$servip/tmp/" -L -m 5`
-	local http_check_var1=`echo $http_check_var | grep -o "Ja em svoje govno kagdij den i zapivaju spermoj"`
+	local http_check_var1=`echo $http_check_var | grep -o "$phpsiteprase"`
 	local http_check_var2=`echo $http_check_var | grep -o "X-Forwarded-For"`
 	local http_check_var22=`echo $http_check_var | grep -o "Client-Ip"`
 	local http_check_var3=`echo $http_check_var | grep -o "X-Proxy-Id"`
@@ -479,7 +493,7 @@ function ping_http {
 		fi
 		local http_check_var=`curl -s -A "$varagent" -p -x "$proxyip" --connect-timeout $TIMEOUT -m 5 \
 		--header "Host: $servdns" --url "http://$servip/tmp/" -L | \
-		grep -o "Ja em svoje govno kagdij den i zapivaju spermoj"`
+		grep -o "$phpsiteprase"`
 		if [[ -n "$http_check_var" ]]; then	#-n not zero
 			echo "$proxyip" >> "$OUTPUT_DIR"/http/goodconnect
 		fi
@@ -494,7 +508,7 @@ function ping_socks {
 	echo -ne "\t\t\t\t\t\t checking process $count \\r"
 	local proxyip=$1
 	local socks_check_var=`curl -s -A "$varagent" --socks4 "$proxyip" --header "Host: $servdns" \
-	--url "http://$servip/tmp/" -L --connect-timeout $TIMEOUT -m 10 | grep "Ja em svoje govno kagdij den i zapivaju spermoj"`
+	--url "http://$servip/tmp/" --connect-timeout $TIMEOUT -m 10 | grep "$phpsiteprase"`
 	if [[ -n "$socks_check_var" ]];	then
 		local ipold=$(echo $proxyip | sed 's/:.*//')
 		local ip=$(dig +short $ipold)
@@ -502,22 +516,24 @@ function ping_socks {
 			local proxyip=$ip:$(echo $proxyip | sed 's/.*://')
 		fi
 		# DEBUG echo socks_check_var is GOOD ! checking one more time ....... must pass two checks !
-		local socks_check_var=`curl -s -A "$varagent" --socks4 "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" -L --connect-timeout $TIMEOUT -m 10 | grep "Ja em svoje govno kagdij den i zapivaju spermoj"`
-		if [[ "$socks_check_var" == "" ]]; then
-			echo second check faild skipping > /dev/null # DEBUG
-		else
+		#local socks_check_var=`curl -s -A "$varagent" --socks4 "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" -L --connect-timeout $TIMEOUT -m 10 | grep "Ja em svoje govno kagdij den i zapivaju spermoj"`
+		#if [[ "$socks_check_var" == "" ]]; then
+		#	echo second check faild skipping > /dev/null # DEBUG
+		#else
 			# DEBUG echo second check PASS !
 			echo "$proxyip" >> "$OUTPUT_DIR"/socks/good
 			echo -ne "Found `cat "$OUTPUT_DIR"/socks/good | wc -l` working proxies      \\r"
-		fi
+		#fi
 	else
-		local socks_check_var1=`curl -s -A "$varagent" --socks5 "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" -L --connect-timeout $TIMEOUT -m 10 | grep "Ja em svoje govno kagdij den i zapivaju spermoj"`
+		local socks_check_var1=`curl -s -A "$varagent" --socks5 "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" --connect-timeout $TIMEOUT -m 10 | grep "$phpsiteprase"`
 		if [ -n "$socks_check_var1" ]; then
 			echo "$proxyip" >> "$OUTPUT_DIR"/socks/goodothers
+			echo -ne "Found `cat "$OUTPUT_DIR"/socks/goodothers | wc -l` goodothers      \\r"
 		else
-			local socks_check_var2=`curl -s -A "$varagent" --socks4a "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" -L --connect-timeout $TIMEOUT -m 10 | grep "Ja em svoje govno kagdij den i zapivaju spermoj"`
+			local socks_check_var2=`curl -s -A "$varagent" --socks4a "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" --connect-timeout $TIMEOUT -m 10 | grep "$phpsiteprase"`
 			if [ -n "$socks_check_var2" ]; then
 				echo "$proxyip" >> "$OUTPUT_DIR"/socks/goodothers
+				echo -ne "Found `cat "$OUTPUT_DIR"/socks/goodothers | wc -l` goodothers      \\r"
 			fi
 
 		fi
@@ -565,8 +581,10 @@ function check_alive_socks {
 
 	echo Removing dupes ...
 	mv "$OUTPUT_DIR"/socks/ALL "$OUTPUT_DIR"/socks_tmp_all
+	#cat "$OUTPUT_DIR"/http/*|sort|uniq >> "$OUTPUT_DIR"/socks_tmp_all
 	cat "$OUTPUT_DIR"/socks/*|sort|uniq > "$OUTPUT_DIR"/socks_tmp
 	rm  "$OUTPUT_DIR"/socks/*
+	#cat "$OUTPUT_DIR"/socks_tmp_all|sort|uniq > "$OUTPUT_DIR"/socks/ALL
 	mv "$OUTPUT_DIR"/socks_tmp_all "$OUTPUT_DIR"/socks/ALL
 
 	if [ $notallcheck == 1 ] ; then
@@ -591,6 +609,7 @@ function check_alive_socks {
 	wait
 	echo
 	[ -f "$OUTPUT_DIR"/socks_tmp ] && rm "$OUTPUT_DIR"/socks_tmp
+#	[ -f "$OUTPUT_DIR"/socks_tmp_all ] && rm "$OUTPUT_DIR"/socks_tmp_all
 }
 
 function nocodeen {
@@ -618,26 +637,24 @@ function get_proxies {
 	[ ! -d "$OUTPUT_DIR"/http ] && mkdir "$OUTPUT_DIR"/http/
 
 # START
-		#get_sakura   #doesnt working
-		# lame removed get_multiproxy
-	#small:
-#	get_freeproxylists 
+	get_freeproxylists &
 
+	get_sakura &
 	get_myproxy &
-#	get_nntime &
-#	get_proxylistsnet &
-#	get_shroomery &
-#	get_samair_http &
-#	get_proxyhunter &
-#	get_blogspot &		#http://elite-proxies.blogspot.com/
+	get_nntime &
+	get_proxylistsnet &
+	get_shroomery &
+	get_samair_http &
+	get_eliteproxy &
+	#get_blogspot &	dead	#http://elite-proxies.blogspot.com/
 
 if [ "$enablesocks" -eq 1 ];then
-#	get_samair_socks &
+	get_samair_socks &
 	get_socks5list &
 fi
 
 	#large:
-#	get_rosinstrument & #many
+	get_rosinstrument & #many
 wait
 	echo "creating ALL file"
 	cat "$OUTPUT_DIR"/http/*|sort|uniq > http_tmp
@@ -757,6 +774,8 @@ function _usage {
 
 echo "Currently supporting freeproxylists, sakura, multiproxy, nntime, myproxy, proxylistsnet, shroomery, samair.ru, proxies.by"
 echo
+echo "`basename $0` -H enable http"
+echo "`basename $0` -S enable Socks"
 echo "`basename $0` -r rip proxy websites to \"$OUTPUT_DIR\" driectory"
 echo "`basename $0` -c read IPs from \"$OUTPUT_DIR\" driectory and check if alive"
 echo "`basename $0` -p copy good connect http proxies IPs to "$OUTPUT_DIR"/CONNECT_proxychains"
@@ -764,7 +783,6 @@ echo "`basename $0` -b recover backup of /etc/proxychains.conf"
 echo "`basename $0` -l show etc/proxychains.conf"
 echo "`basename $0` -s silent"
 echo "`basename $0` -o don't check all proxies, only already checked"
-echo "`basename $0` -S enable Socks"
 
 }
 
@@ -778,6 +796,7 @@ recoverchains=0
 silent=0
 notallcheck=0
 enablesocks=0
+enablehttp=0
 
 if (($# == 0)); then
  echo "Script requires an argument" ...
@@ -785,7 +804,7 @@ if (($# == 0)); then
  exit
 fi
 
-while getopts "rcpbhsloS" flag
+while getopts "rcpbhsloSH" flag
 do
      case "$flag" in
          r)
@@ -811,6 +830,9 @@ do
              ;;
          S)
              enablesocks=1
+             ;;
+	 H)
+             enablehttp=1
              ;;
 
          h)
@@ -838,7 +860,7 @@ fi
 [ "$getproxies" -eq 1 ] && { get_proxies ; echo "Completed ripping..."; }
 
 if [ "$checkalive" -eq 1 ];then
-	check_alive_http
+	[ "$enablehttp" -eq 1 ] && check_alive_http;
 	[ "$enablesocks" -eq 1 ] && check_alive_socks;
 fi
 

@@ -1,2 +1,7 @@
-you need that too:
+you need to create your own php site with that:
 http://www.unix.com/shell-programming-scripting/188301-completed-simple-http-proxy-checker.html
+
+proxcs file - Socks 4/5 fast scanner
+proxc file - HTTP fast scanner
+chainwrap file  - chans tester
+prmy.sh - web grabber for proxies. YOU BETTER SET GOOD httpproxy, before use it. Or try to comment it.(Site blocking by ISP)
