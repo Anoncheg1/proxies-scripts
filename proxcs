@@ -1,0 +1,100 @@
+#! /bin/bash
+trap bashtrap INT
+bashtrap()
+{
+	echo
+	echo "CTRL+C Detected"
+	kill 0
+	exit
+}
+#curl -s -A "$varagent" --socks5 "27.123.221.74:1080" --url "http://dereksmartuc.hut1.ru/tmp/"
+
+servdns="yoursite.dns.ru"
+servip="1.1.1.1" #ip address of server with php site
+sip=$(dig +short $servdns)
+if [[ $sip != "" ]]; then
+	servip=$sip
+fi
+
+varagent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_2) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.202 Safari/535.1"
+TIMEOUT=4
+
+#cookie_header="Cookie: __atuvc=19%7C23; NIXSESSID=3f5d178f0ce66213c512e512b65269008c365038;" #random cookie
+
+phpsiteprase="any fucking text"
+
+
+
+function dnstoip {
+	local ipold=$(echo $proxyip | sed 's/:.*//')
+	local ip=$(dig +short $ipold)
+		if [[ $ip != "" ]]; then
+			local proxyip=$ip:$(echo $proxyip | sed 's/.*://')
+		fi
+	echo "$proxyip""      "
+}
+function ping_socks {
+# <p>$phpsiteprase</p>/nArray
+#    [Accept] => text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+#    [Accept-Charset] => ISO-8859-1,utf-8;q=0.7,*;q=0.7
+#    [Accept-Encoding] => gzip,deflate
+#    [Accept-Language] => en-us,en;q=0.5
+#    [Connection] => close
+#    [Host] => yourservdns.com
+#    [User-Agent] => Mozilla/5.0 (Android; Tablet; rv:12.0) Gecko/12.0 Firefox/12.0
+#    [Via] => 1.1 89.28.122.140 (Mikrotik HttpProxy)
+#    [X-Forwarded-For] => 1.1.1.1
+#    [X-Proxy-Id] => 1773250874
+#    [X-Real-Ip] => 89.28.122.140
+	local proxyip=$1
+
+	local socks_check_var=`curl -s -A "$varagent" --socks5 "$proxyip" --header "Host: $servdns" \
+	--url "http://$servip/tmp/" --connect-timeout $TIMEOUT -m 10 | grep "$phpsiteprase"`
+#	--header "Host: "$servdns"" --url "http://"$servip"/tmp/" -L -m 5`
+	local check1_phrase=`echo "$http_check_var" | grep -o "$phpsiteprase"`
+	if [[ -n "$socks_check_var" ]]; then	#-n not zero # working
+		# DEBUG echo socks_check_var is GOOD ! checking one more time ....... must pass two checks !
+		local socks_check_var=`curl -s -A "$varagent" --socks5 "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" -L --connect-timeout $TIMEOUT -m 10 | grep "$phpsiteprase"`
+		if [[ "$socks_check_var" == "" ]]; then
+			echo -ne "\t\t\t\tsocks5fail\r"
+		else
+			# DEBUG echo second check PASS !
+			echo -ne "\t\t\t\tsocks5\r"
+		fi
+		dnstoip
+	else
+		local socks_check_var1=`curl -s -A "$varagent" --socks4 "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" --connect-timeout $TIMEOUT -m 10 | grep "$phpsiteprase"`
+		if [ -n "$socks_check_var1" ]; then			
+			echo -ne "\t\t\t\tsocks4\r"
+			dnstoip
+		else
+			local socks_check_var2=`curl -s -A "$varagent" --socks4a "$proxyip" --header "Host: $servdns" --url "http://$servip/tmp/" --connect-timeout $TIMEOUT -m 10 | grep "$phpsiteprase"`
+			if [ -n "$socks_check_var2" ]; then
+				echo -ne "\t\t\t\tsocks4a\r"
+				dnstoip
+			fi
+		fi
+
+	fi
+	echo -ne "process $count finished    \r"
+}
+
+function check_alive_socks {
+	##### check loop #####
+	local count=1
+	for line in $( cat $1 )
+	do	
+		ping_socks "$line" &
+		sleep 0.2
+
+	let count++
+	done
+	wait
+	echo 
+}
+
+### MAIN ####
+TOTAL_SOCKS=`cat $1 | wc -l`
+[ "$TOTAL_SOCKS" == 0 ] && { echo "Found 0 proxies"; exit; }
+echo "Checking "$TOTAL_SOCKS" SOCKS proxies"
+check_alive_socks $1
